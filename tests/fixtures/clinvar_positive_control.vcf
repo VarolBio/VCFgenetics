@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##contig=<ID=1>
+##contig=<ID=13>
+##contig=<ID=17>
+##INFO=<ID=CLNSIG,Number=.,Type=String,Description="Clinical significance">
+##INFO=<ID=GENEINFO,Number=.,Type=String,Description="Gene symbol:gene id">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+17	50	CV_PC_TP53	AG	A	.	.	CLNSIG=Pathogenic;GENEINFO=TP53:7157
+13	100	CV_PC_BRCA2	A	C	.	.	CLNSIG=Pathogenic;GENEINFO=BRCA2:675
+13	101	CV_PC_BRCA1	A	G	.	.	CLNSIG=Pathogenic;GENEINFO=BRCA1:672
+1	10	CV_PC_PTEN	A	AT	.	.	CLNSIG=Pathogenic;GENEINFO=PTEN:5728

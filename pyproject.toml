@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vcfgenetics-monitor"
+version = "0.0.0"
+description = "ClinVar snapshot diff monitoring MVP"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "ga4gh.vrs>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+vcfgenetics-monitor = "vcfgenetics_monitor.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

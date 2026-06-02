@@ -1,0 +1,11 @@
+##fileformat=VCFv4.2
+##contig=<ID=1>
+##contig=<ID=13>
+##contig=<ID=17>
+##INFO=<ID=NOTE,Number=.,Type=String,Description="notes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10	eq1	A	AT	.	.	NOTE=equivalence
+1	11	eq2	T	T	.	.	NOTE=equivalence_shifted
+17	50	del_bug	AG	A	.	.	NOTE=anchored_deletion_regression
+13	100	multi	A	C,G	.	.	NOTE=multiallelic
+1	9999	malformed	N	-	.	.	NOTE=deliberately_malformed_for_tech_unresolvable
