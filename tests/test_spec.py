@@ -1,5 +1,5 @@
-import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,7 +10,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def _run_cli(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["vcfgenetics-monitor", *args],
+        [sys.executable, "-m", "vcfgenetics_monitor.cli", *args],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -65,7 +65,7 @@ def test_multiallelic_split_counts_all_alleles():
     out = _run_cli(
         "ingest",
         "--watchlist",
-        str(FIXTURES / "watchlist.vcf"),
+        str(FIXTURES / "watchlist_diff.vcf"),
         "--reference",
         str(FIXTURES / "GRCh38_micro.fa"),
         "--emit",
@@ -104,7 +104,7 @@ def test_clinvar_positive_control_known_genes_are_findable():
     out = _run_cli(
         "diff",
         "--watchlist",
-        str(FIXTURES / "watchlist.vcf"),
+        str(FIXTURES / "watchlist_diff.vcf"),
         "--old",
         str(FIXTURES / "clinvar_positive_control.vcf"),
         "--new",
@@ -143,7 +143,7 @@ def test_conservation_invariant_holds_across_four_verdicts():
     out = _run_cli(
         "diff",
         "--watchlist",
-        str(FIXTURES / "watchlist.vcf"),
+        str(FIXTURES / "watchlist_diff.vcf"),
         "--old",
         str(FIXTURES / "clinvar_old.vcf"),
         "--new",
@@ -162,7 +162,7 @@ def test_four_verdict_classification_one_variant_in_each_bucket():
     out = _run_cli(
         "diff",
         "--watchlist",
-        str(FIXTURES / "watchlist.vcf"),
+        str(FIXTURES / "watchlist_diff.vcf"),
         "--old",
         str(FIXTURES / "clinvar_old.vcf"),
         "--new",
