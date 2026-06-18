@@ -6,10 +6,10 @@ import sys
 
 from .bcftools import BcftoolsRequiredError
 from .compare import verdict_for
-from .clinvar import clnsig_to_tier, parse_clnsig_raw, parse_geneinfo
-from .ingest import read_vcf_records
 from .normalize import normalize_watchlist_vcf
-from .models import DiffRow, SnapshotHit, Verdict
+from .models import DiffRow, Verdict
+from .snapshot import load_snapshot
+from .store import lookup_vrs, open_store
 
 
 def _cmd_normalize(args: argparse.Namespace) -> int:
@@ -56,48 +56,6 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_snapshot(snapshot_path: str, *, reference_fasta: str) -> dict[str, SnapshotHit]:
-    rows = read_vcf_records(snapshot_path)
-    hits: dict[str, SnapshotHit] = {}
-    # Normalize + VRS-id snapshot records the same way as watchlist.
-    from .normalize import normalize_watchlist_vcf as _norm  # reuse bcftools+VRS path
-
-    # Write snapshot to a temp watchlist-like representation by reusing the parser output.
-    # Since fixtures are tiny, normalize per-record via the same code path by materializing
-    # a minimal VCF text through ingest.to_vcf_text in normalize.py.
-    # Here, use a small hack: create a temporary file is overkill; just call per-row.
-    from .ingest import to_vcf_text
-    from .bcftools import bcftools_norm_split_leftalign_vcf_text
-    from .normalize import _parse_norm_vcf
-    from .vrs import vrs_allele_id
-
-    for r in rows:
-        raw_vcf = to_vcf_text([r])
-        norm_text = bcftools_norm_split_leftalign_vcf_text(raw_vcf, reference_fasta=reference_fasta)
-        for chrom, pos, vid, ref, alt in _parse_norm_vcf(norm_text):
-            vrs_id = vrs_allele_id(
-                chrom=chrom,
-                pos=pos,
-                ref=ref,
-                alt=alt,
-                reference_fasta=reference_fasta,
-            )
-            clnsig_raw = parse_clnsig_raw(r.info)
-            tier = clnsig_to_tier(clnsig_raw)
-            geneinfo = parse_geneinfo(r.info)
-            hits.setdefault(
-                vrs_id,
-                SnapshotHit(
-                    snapshot=snapshot_path,
-                    vrs_id=vrs_id,
-                    clnsig_raw=clnsig_raw,
-                    tier=tier,
-                    geneinfo=geneinfo,
-                ),
-            )
-    return hits
-
-
 def _cmd_lookup(args: argparse.Namespace) -> int:
     # --variant CHR:POS:REF:ALT
     try:
@@ -116,8 +74,26 @@ def _cmd_lookup(args: argparse.Namespace) -> int:
         alt=alt,
         reference_fasta=args.reference,
     )
-    snap = _load_snapshot(args.snapshot, reference_fasta=args.reference)
-    hit = snap.get(vrs_id)
+    if args.db:
+        from .snapshot import _snapshot_date_from_path
+
+        conn = open_store(args.db)
+        try:
+            hit = lookup_vrs(
+                conn,
+                snapshot_date=_snapshot_date_from_path(args.snapshot),
+                vrs_id=vrs_id,
+            )
+        finally:
+            conn.close()
+        if hit is None:
+            snap = load_snapshot(
+                args.snapshot, reference_fasta=args.reference, db_path=args.db
+            )
+            hit = snap.get(vrs_id)
+    else:
+        snap = load_snapshot(args.snapshot, reference_fasta=args.reference)
+        hit = snap.get(vrs_id)
     if hit is None:
         print("NO_MATCH")
         return 0
@@ -127,8 +103,8 @@ def _cmd_lookup(args: argparse.Namespace) -> int:
 
 def _cmd_diff(args: argparse.Namespace) -> int:
     alleles = normalize_watchlist_vcf(args.watchlist, reference_fasta=args.reference)
-    old = _load_snapshot(args.old, reference_fasta=args.reference)
-    new = _load_snapshot(args.new, reference_fasta=args.reference)
+    old = load_snapshot(args.old, reference_fasta=args.reference, db_path=args.db)
+    new = load_snapshot(args.new, reference_fasta=args.reference, db_path=args.db)
 
     rows: list[DiffRow] = []
     counts = {v.value: 0 for v in Verdict}
@@ -228,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     p_diff.add_argument("--old", required=True)
     p_diff.add_argument("--new", required=True)
     p_diff.add_argument("--reference", required=True)
+    p_diff.add_argument("--db", help="Optional SQLite path to persist snapshot rows")
     p_diff.add_argument("--emit", choices=["json", "text"], default="text")
     p_diff.set_defaults(func=_cmd_diff)
 
@@ -235,6 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     p_lookup.add_argument("--variant", required=True)
     p_lookup.add_argument("--snapshot", required=True)
     p_lookup.add_argument("--reference", required=True)
+    p_lookup.add_argument("--db", help="Optional SQLite path to persist snapshot rows")
     p_lookup.set_defaults(func=_cmd_lookup)
 
     ns = p.parse_args(argv)
